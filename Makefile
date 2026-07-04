@@ -1,13 +1,14 @@
-.PHONY: help install test lint format clean run-local
+.PHONY: help install test lint format clean run-local docs
 
 help:
 	@echo "Available targets:"
 	@echo "  make install        - Install dependencies"
 	@echo "  make test           - Run tests"
 	@echo "  make lint           - Run linting checks"
-	@echo "  make format         - Format code with black and isort"
+	@echo "  make format         - Format code with ruff"
 	@echo "  make clean          - Clean up generated files"
 	@echo "  make run-local      - Run pipeline locally"
+	@echo "  make docs           - Generate documentation with pdoc"
 
 install:
 	@echo "Installing dependencies..."
@@ -24,8 +25,8 @@ lint:
 
 format:
 	@echo "Formatting code..."
-	black .
-	isort .
+	ruff format .
+	ruff check . --fix
 
 clean:
 	@echo "Cleaning up..."
@@ -36,3 +37,8 @@ clean:
 run-local:
 	@echo "Running pipeline locally..."
 	cd pipelines && python run.py
+
+docs:
+	@echo "Generating documentation..."
+	pdoc -d google src/senpai_suggest --output-directory docs
+	@echo "✓ Documentation generated in docs/ directory"
