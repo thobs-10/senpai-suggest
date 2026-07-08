@@ -1,6 +1,7 @@
 import sys
 import subprocess
 from pathlib import Path
+from subprocess import CompletedProcess
 
 
 SOURCE_PREFIXES = ("src/", "api/", "pipeline/", "utils/")
@@ -12,7 +13,7 @@ def get_staged_files() -> list[str]:
     Returns:
         List of staged file paths as strings.
     """
-    result = subprocess.run(
+    result: CompletedProcess[str] = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
         capture_output=True,
         text=True,
