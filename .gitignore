@@ -74,3 +74,11 @@ docker-compose.override.yml
 *.tfvars
 .terraform/
 .terraform.lock.hcl
+
+
+# Custom ignore rules
+_version.py
+project.md
+AGENTS.md
+skills.md
+.github/copilot-instructions.md

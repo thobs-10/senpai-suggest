@@ -1,74 +1,97 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = ["setuptools>=61.0.0", "setuptools_scm>=8.2.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "senpai-suggest"
-version = "0.1.0"
-description = "End-to-end anime recommender system with MLOps pipeline"
+name = "mlops-project"
+dynamic = ["version"]
+description = "MLOps resources and utilities"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [
-    { name = "Author Name", email = "author@example.com" }
+authors = [{ name = "Author", email = "author@example.com" }]
+keywords = ["mlops", "machine-learning", "devops"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "zenml>=0.56.0",
-    "comet-ml>=3.35.0",
-    "implicit>=0.7.2",
-    "scikit-learn>=1.3.0",
-    "fastapi>=0.104.0",
-    "uvicorn>=0.24.0",
-    "streamlit>=1.28.0",
-    "boto3>=1.28.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "pydantic>=2.0.0",
+    "boto3>=1.43.0",
+    "comet-ml>=3.58.3",
+    "dvc>=3.67.1",
+    "dvc-s3>=3.3.0",
+    "fastapi>=0.138.1",
+    "ipykernel>=7.3.0",
+    "joblib>=1.5.3",
+    "loguru>=0.7.3",
+    "matplotlib>=3.10.9",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pyarrow>=17.0.0",
+    "pytest-cov>=7.1.0",
+    "pytest-instafail>=0.5.0",
+    "pytest-mock>=3.15.1",
+    "pytest-randomly>=4.1.0",
+    "pytest-xdist>=3.8.0",
+    "pyyaml>=6.0.3",
+    "seaborn>=0.13.2",
+    "setuptools>=82.0.1",
+    "torch>=2.10.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-dir]
+"" = "."
 
 [project.optional-dependencies]
 dev = [
+    "ruff==0.4.4",
+    "setuptools_scm>=8.2.0",
+    "pyrefly>=1.1.0",
+    "pdoc>=14.0.0",
+    "commitizen>=3.0.0",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
-    "black>=23.10.0",
-    "isort>=5.12.0",
-    "pylint>=3.0.0",
-    "flake8>=6.1.0",
-    "mypy>=1.6.0",
     "pre-commit>=3.5.0",
 ]
 
-[tool.black]
+[tool.setuptools_scm]
+write_to = "_version.py"
+version_scheme = "release-branch-semver"
+fallback_version = "0.1.0"
+
+[tool.ruff]
 line-length = 100
-target-version = ["py310"]
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
+lint.select = ["E", "F", "W", "I", "C", "B"]
+lint.ignore = ["E501"]
 
-[tool.isort]
-profile = "black"
-line_length = 100
-skip_gitignore = true
-multi_line_mode = 3
-include_trailing_comma = true
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
 
-[tool.pylint]
-max-line-length = 100
+# [project.optional-dependencies]
+# dev = ["pytest>=7.0", "ruff>=0.1.0", "mypy>=1.0"]
 
-[tool.mypy]
+# [tool.uv]
+# python-version = "3.10"
+
+
+[tool.pyrefly]
 python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-check_untyped_defs = true
+type_checking_mode = "standard"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = [
+    "src/senpai_suggest/__init__.py",
+]
+tag_format = "v$version"
+update_changelog_on_bump = true
