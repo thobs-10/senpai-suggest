@@ -82,3 +82,4 @@ project.md
 AGENTS.md
 skills.md
 .github/copilot-instructions.md
+.github/agents/*
