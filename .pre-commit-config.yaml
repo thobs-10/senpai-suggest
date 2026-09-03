@@ -63,9 +63,9 @@ repos:
     hooks:
       - id: uv-lock # fails if pyproject.toml changed but uv.lock wasn't regenerated
 
-  # ---- Commit message convention (optional but nice) ----
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v3.4.0
+  # ---- Commit message convention (Commitizen for standardized commits) ----
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.27.0
     hooks:
-      - id: conventional-pre-commit
+      - id: commitizen
         stages: [commit-msg]
