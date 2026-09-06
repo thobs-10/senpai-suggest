@@ -1,8 +1,7 @@
-import sys
 import subprocess
+import sys
 from pathlib import Path
 from subprocess import CompletedProcess
-
 
 SOURCE_PREFIXES = ("src/", "api/", "pipeline/", "utils/")
 
