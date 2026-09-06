@@ -1,136 +1,187 @@
-"""
-Data ingestion tasks for loading data from AWS S3.
+"""Data ingestion tasks for loading data from AWS S3."""
 
-All tasks are logged and orchestrated using Prefect flows.
-"""
+from typing import Any, Dict, Tuple
 
-from typing import Tuple
-from prefect import task
-import pandas as pd
-import numpy as np
+import pyarrow as pa
+from dotenv import load_dotenv
 
-from src.senpai_suggest.backend.utils.main_utils import fetch_from_s3
+from src.senpai_suggest.backend.logger.logger import Logger
+from src.senpai_suggest.backend.utils.main_utils import fetch_from_s3, save_to_s3
+
+logger: Logger = Logger()
+
+load_dotenv()
 
 
 class UserListIngestion:
     """Class for handling user list ingestion tasks."""
 
-    def __init__(self):
-        self.user_ratings_data = None
+    def __init__(self) -> None:
+        self.user_ratings_data: pa.Table | None = None
 
-    def ingest_user_list(self, s3_path: str) -> dict:
+    def ingest_user_list(self, config: Dict[str, Dict[str, str]]) -> pa.Table:
         """
-        Load user list from S3.
+        Load user list from S3 and convert the CSV to a PyArrow table.
 
         Args:
-            s3_path: S3 path to the user list CSV file.
+            config: Dictionary containing ingestion configuration.
 
         Returns:
-            Dictionary containing user list data.
+            PyArrow Table containing user list data.
 
         Raises:
-            Exception: If S3 access or data parsing fails.
+            RuntimeError: If S3 access or data parsing fails.
         """
         self.user_ratings_data = fetch_from_s3(
-            bucket_name="your-bucket-name",
-            key="your-key",
-            output_file="your-output-file",
+            config["ingestion"]["raw_ratings_path"],
+            config["ingestion"]["output_file_path"],
         )
         return self.user_ratings_data
 
-    ## normalize user ratings
     def normalize_ratings(
         self,
-        rating_df: pd.DataFrame,
+        rating_table: pa.Table,
         min_rating: float,
         max_rating: float,
-    ) -> pd.DataFrame:
+    ) -> pa.Table:
         """
-        Normalize the ratings in the dataframe to a range of 0 to 1.
+        Normalize the ratings in the table to a range of 0 to 1.
 
-        Parameters:
-        rating_df (pd.DataFrame): The input dataframe containing user ratings.
-        min_rating (float): The minimum rating value.
-        max_rating (float): The maximum rating value.
+        Args:
+            rating_table: PyArrow Table containing user ratings.
+            min_rating: The minimum rating value.
+            max_rating: The maximum rating value.
 
         Returns:
-        pd.DataFrame: The dataframe with normalized ratings.
+            PyArrow Table with normalized ratings.
         """
-        if "rating" not in rating_df.columns:
-            raise ValueError("DataFrame must contain 'rating' column.")
+        if "rating" not in rating_table.column_names:
+            raise ValueError("Table must contain 'rating' column.")
 
         scale = max_rating - min_rating
         if scale == 0:
             raise ValueError("max_rating and min_rating cannot be the same.")
 
-        rating_df["rating"] = ((rating_df["rating"] - min_rating) / scale).astype(np.float64)
-        return rating_df
+        rating_col = rating_table["rating"].combine_chunks().cast(pa.float64())
+        normalized = ((rating_col - min_rating) / scale).cast(pa.float64())
+        idx = rating_table.column_names.index("rating")
+        return rating_table.set_column(idx, "rating", normalized)
 
-    def check_duplicates(self, rating_df: pd.DataFrame) -> bool:
-        """
-        Check for duplicate rows in the dataframe.
+    def check_duplicates(self, rating_table: pa.Table) -> bool:
+        """Check for duplicate rows in the table."""
+        if len(rating_table) == 0:
+            return False
 
-        Args:
-            rating_df: DataFrame to check for duplicates.
+        unique_rows = rating_table.group_by(rating_table.column_names).aggregate([])
+        return len(unique_rows) != len(rating_table)
 
-        Returns:
-            True if duplicates are found, False otherwise.
-
-        """
-        return rating_df.duplicated().any()
-
-    def check_nulls(
-        self,
-        rating_df: pd.DataFrame,
-    ) -> bool:
-        """
-        Check for null values in the dataframe.
-
-        Parameters:
-        rating_df (pd.DataFrame): The input dataframe to check for null values.
-
-        Returns:
-        bool: True if null values are found, False otherwise.
-        """
-        return rating_df.isnull().values.any()
+    def check_nulls(self, rating_table: pa.Table) -> bool:
+        """Check for null values in the table."""
+        return any(
+            rating_table[column_name].null_count > 0 for column_name in rating_table.column_names
+        )
 
     def encode_users(
         self,
-        rating_df: pd.DataFrame,
-    ) -> Tuple[pd.DataFrame, dict, dict]:
+        rating_table: pa.Table,
+    ) -> Tuple[pa.Table, Dict[Any, int], Dict[int, Any]]:
         """
-        Encode user IDs in the dataframe to a continuous range of integers.
+        Encode user IDs in the table to a continuous range of integers.
 
-        Parameters:
-        rating_df (pd.DataFrame): The input dataframe containing user ratings.
+        Args:
+            rating_table: The input table containing user ratings.
 
         Returns:
-        Tuple[pd.DataFrame, dict, dict]: A tuple containing the dataframe with encoded user IDs,
-                                        a dictionary mapping original user IDs to encoded IDs,
-                                        and a dictionary mapping encoded IDs back to original user IDs.
+            Tuple containing the table with encoded user IDs, a mapping from original
+            user IDs to encoded IDs, and the reverse mapping.
         """
-        if "user_id" not in rating_df.columns:
-            raise ValueError("DataFrame must contain 'user_id' column.")
+        if "user_id" not in rating_table.column_names:
+            raise ValueError("Table must contain 'user_id' column.")
 
-        user_ids = rating_df["user_id"].unique().tolist()
-        user2user_encoded = {user_id: i for i, user_id in enumerate(user_ids)}
-        user2user_decoded = {i: user_id for i, user_id in enumerate(user_ids)}
-        # create a new column in the dataframe with the encoded user IDs(from userid = 123456 to user = 0)
-        rating_df["user"] = rating_df["user_id"].map(user2user_encoded)
+        user_ids = rating_table["user_id"].combine_chunks().to_pylist()
+        user2user_encoded = {user_id: i for i, user_id in enumerate(dict.fromkeys(user_ids))}
+        user2user_decoded = {i: user_id for user_id, i in user2user_encoded.items()}
+        encoded_user = pa.array(
+            [user2user_encoded[user_id] for user_id in user_ids], type=pa.int32()
+        )
+        return (
+            rating_table.append_column("user", encoded_user),
+            user2user_encoded,
+            user2user_decoded,
+        )
 
-        return rating_df, user2user_encoded, user2user_decoded
+    def encode_anime(
+        self,
+        rating_table: pa.Table,
+    ) -> Tuple[pa.Table, Dict[Any, int], Dict[int, Any]]:
+        """
+        Encode anime IDs in the table to a continuous range of integers.
 
-    def encode_anime() -> None:
-        # TODO: Implement anime ID encoding similar to user ID encoding.
-        raise NotImplementedError("encode_anime method is not implemented yet.")
+        Args:
+            rating_table: The input table containing anime ratings.
 
-    def sort_user_list() -> None:
-        # TODO: Implement sorting of the user list based on specific criteria.
-        raise NotImplementedError("sort_user_list method is not implemented yet.")
+        Returns:
+            Tuple containing the table with encoded anime IDs, a mapping from original
+            anime IDs to encoded IDs, and the reverse mapping.
+        """
+        if "anime_id" not in rating_table.column_names:
+            raise ValueError("Table must contain 'anime_id' column.")
 
-    def save_user_list() -> None:
-        # TODO: Implement saving of the user list to a persistent storage.
-        raise NotImplementedError("save_user_list method is not implemented yet.")
+        anime_ids = rating_table["anime_id"].combine_chunks().to_pylist()
+        anime2anime_encoded = {anime_id: i for i, anime_id in enumerate(dict.fromkeys(anime_ids))}
+        anime2anime_decoded = {i: anime_id for anime_id, i in anime2anime_encoded.items()}
+        encoded_anime = pa.array(
+            [anime2anime_encoded[anime_id] for anime_id in anime_ids], type=pa.int32()
+        )
+        return (
+            rating_table.append_column("anime", encoded_anime),
+            anime2anime_encoded,
+            anime2anime_decoded,
+        )
+
+    def sort_user_list(self, rating_table: pa.Table) -> pa.Table:
+        """Shuffle the table rows."""
+        import random
+
+        indices = list(range(len(rating_table)))
+        random.shuffle(indices)
+        return rating_table.take(pa.array(indices, type=pa.int64()))
+
+    def save_user_list(self, ratings_table: pa.Table, bucket_name: str) -> None:
+        """Save the table to S3 as Parquet via the shared utility."""
+        save_to_s3(ratings_table, bucket_name)
+
+    def run_userlist_ingestion(self, config: Dict[str, Dict[str, str]]) -> pa.Table:
+        """
+        Run the complete user list ingestion pipeline.
+
+        Args:
+            config: Dictionary containing ingestion and AWS configuration.
+
+        Returns:
+            The processed PyArrow table after normalization, shuffling, and encoding.
+
+        Raises:
+            RuntimeError: If any of the fetch or save steps fail.
+        """
+        logger.info("Starting user list ingestion process.")
+
+        ratings_table = self.ingest_user_list(config)
+        self.check_duplicates(ratings_table)
+        self.check_nulls(ratings_table)
+
+        ratings_table = self.normalize_ratings(ratings_table, min_rating=0, max_rating=10)
+        ratings_table = self.sort_user_list(ratings_table)
+
+        ratings_table, user2user_encoded, user2user_decoded = self.encode_users(ratings_table)
+        ratings_table, anime2anime_encoded, anime2anime_decoded = self.encode_anime(ratings_table)
+
+        logger.info(f"Encoded {len(user2user_encoded)} users and {len(anime2anime_encoded)} anime")
+
+        self.save_user_list(ratings_table, config["ingestion"]["user_filename"])
+
+        logger.info("User list ingestion process completed.")
+        return ratings_table
 
 
 # @task(retries=3, retry_delay_seconds=60)
