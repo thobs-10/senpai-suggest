@@ -4649,9 +4649,10 @@ dependencies = [
     { name = "setuptools" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
+    { name = "types-pyyaml" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "commitizen" },
     { name = "pre-commit" },
@@ -4669,7 +4670,6 @@ requires-dist = [
     { name = "awswrangler", specifier = ">=3.17.0" },
     { name = "boto3", specifier = ">=1.43.0" },
     { name = "comet-ml", specifier = ">=3.58.3" },
-    { name = "commitizen", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "dvc", specifier = ">=3.67.1" },
     { name = "dvc-s3", specifier = ">=3.3.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
@@ -4679,26 +4679,31 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "pandas", specifier = ">=2.3.3" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.6.1" },
     { name = "prefect", specifier = ">=3.8.4" },
     { name = "pyarrow", specifier = ">=17.0.0" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.1.0" },
-    { name = "pytest-instafail", marker = "extra == 'dev'", specifier = ">=0.5.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.15.1" },
-    { name = "pytest-randomly", marker = "extra == 'dev'", specifier = ">=4.1.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.8.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "setuptools", specifier = ">=82.0.1" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.10.0" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.10.0", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20260815" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "commitizen", specifier = ">=3.0.0" },
+    { name = "pre-commit", specifier = ">=4.6.1" },
+    { name = "pytest", specifier = ">=7.4.0" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "pytest-instafail", specifier = ">=0.5.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+    { name = "pytest-randomly", specifier = ">=4.1.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.14.0" },
+]
 
 [[package]]
 name = "sentry-sdk"
@@ -5103,6 +5108,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7c/f7/68adc395201b20b872d68e975386832e8005ffeacedd43a1d837a32815be/typer-0.26.8.tar.gz", hash = "sha256:c244a6bd558886fe3f8780efb6bdd28bb9aff005a94eedebaa5cb32926fe2f7e", size = 202097 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/80/87/b9fd69c92c6102a066e1b86a35243f53e70bd4c709f2a26d9f4fee4f4dc0/typer-0.26.8-py3-none-any.whl", hash = "sha256:3512ca79ac5c11113414b36e80281b872884477722440691c89d1112e321a49c", size = 122564 },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260815"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/72/b56089aeee6c496d969bac42376bedb6e3eeab4682e1018fa3137122f94b/types_pyyaml-6.0.12.20260815.tar.gz", hash = "sha256:28764110c9cf35846e733da32d8d734df7473c5dde9ef67c3b7332ec0e819858", size = 18545 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/08/52/eefeba09be4ef2a1eb989eb92934561e8e502a6ee3c32654996e4be7e399/types_pyyaml-6.0.12.20260815-py3-none-any.whl", hash = "sha256:6f332212b7e191f3afd5016a713c510b6340593b7ebec573c7d5d20aa5386d3b", size = 21148 },
 ]
 
 [[package]]

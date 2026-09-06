@@ -23,8 +23,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
@@ -55,6 +53,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pydantic-settings>=2.13.1",
     "prefect>=3.8.4",
+    "types-pyyaml>=6.0.12.20260815",
 ]
 
 [tool.setuptools.packages.find]
@@ -74,7 +73,7 @@ explicit = true
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pre-commit>=4.6.1",
     "pytest-cov>=7.1.0",
@@ -93,13 +92,6 @@ write_to = "_version.py"
 version_scheme = "release-branch-semver"
 fallback_version = "0.1.0"
 
-# [tool.ruff]
-# line-length = 100
-# lint.select = ["E", "F", "W", "I", "C", "B"]
-# lint.ignore = ["E501"]
-
-# [tool.ruff.lint.isort]
-# known-first-party = ["src"]
 
 # ---------------------------------------------------
 # Ruff (linting + formatting)
@@ -139,3 +131,20 @@ omit = ["tests/*"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
+fail_under = 80
+
+# ---------------------------------------------------
+# mypy (type checking)
+# ---------------------------------------------------
+[tool.mypy]
+explicit_package_bases = true
+namespace_packages = true
+strict = true
+ignore_missing_imports = true
+disable_error_code = "misc"
+
+# ---------------------------------------------------
+# bandit (security linting)
+[tool.bandit]
+exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]
+skips = ["B101"]
