@@ -4,39 +4,52 @@ messages should be in the format of time - level - message"""
 
 import os
 from datetime import datetime
+from pathlib import Path
+
+from dotenv import load_dotenv
 from loguru import logger
 
-LOGS_DIR = "logs"
-os.makedirs(LOGS_DIR, exist_ok=True)
+load_dotenv()
+
+LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
+LOG_DIR.mkdir(exist_ok=True)
+LOG_FILE = LOG_DIR / f"system_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_ROTATION = os.getenv("LOG_ROTATION", "10 MB")
+LOG_RETENTION = os.getenv("LOG_RETENTION", "30 days")
+
+logger.add(
+    LOG_FILE,
+    rotation=LOG_ROTATION,
+    retention=LOG_RETENTION,
+    level=LOG_LEVEL,
+    format="{time:YYYY-MM-DD_HH:mm:ss} | {level} | {message}",
+)
 
 
-class SingletonLogger:
-    _instance = None
+class Logger:
+    """Singleton Logger class to provide a consistent logging interface across the project."""
 
-    def __new__(cls):
+    _instance: "Logger | None" = None
+
+    def __new__(cls) -> "Logger":
         if cls._instance is None:
-            cls._instance = super(SingletonLogger, cls).__new__(cls)
-            cls._instance._initialize()
+            cls._instance = super().__new__(cls)
         return cls._instance
 
-    def _initialize(self):
-        LOGS_DIR = "logs"
-        os.makedirs(LOGS_DIR, exist_ok=True)
-        # the file will have the  name_date_timestamp.log format
-        LOG_FILE = os.path.join(
-            LOGS_DIR, f"log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-        )
-        logger.add(LOG_FILE, format="{time} - {level} - {message}", level="INFO")
+    def info(self, message: str) -> None:
+        """Log an info message."""
+        logger.info(message)
 
-    def get_logger(self):
-        return logger
+    def error(self, message: str) -> None:
+        """Log an error message."""
+        logger.error(message)
 
+    def warning(self, message: str) -> None:
+        """Log a warning message."""
+        logger.warning(message)
 
-_singleton_logger = SingletonLogger()
-
-
-def get_logger(name: str | None = None):
-    """Backward-compatible logger accessor used across the codebase."""
-    if name:
-        return _singleton_logger.get_logger().bind(module=name)
-    return _singleton_logger.get_logger()
+    def debug(self, message: str) -> None:
+        """Log a debug message."""
+        logger.debug(message)
