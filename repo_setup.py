@@ -4,7 +4,6 @@ Repository setup script for the Anime Recommender System project.
 Creates the directory structure and root-level configuration files.
 """
 
-import os
 from pathlib import Path
 
 
@@ -53,7 +52,7 @@ def create_package_init_files():
     package_dirs = [
         "src/senpai_suggest",
     ]
-    
+
     for package_dir in package_dirs:
         init_path = Path(package_dir) / "__init__.py"
         init_path.touch()

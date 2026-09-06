@@ -1,7 +1,6 @@
 """Main Streamlit application for anime recommendations."""
 
 import streamlit as st
-
 from client import RecommenderClient
 
 
