@@ -18,6 +18,11 @@ aws:
   s3_region: ${AWS_REGION}
   # Use IAM instance profiles in production instead of hardcoded credentials
 
+# data ingestion
+ingestion:
+  raw_ratings_path: s3://your-bucket-name/path/to/ratings.csv
+  output_file_path: "s3://your-bucket-name/path/to/user_ratings.parquet"
+
 # Model configuration
 model:
   name: "als_recommender"
