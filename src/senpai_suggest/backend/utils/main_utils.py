@@ -1,17 +1,21 @@
 """Utility script that has helper functions required by more than one function."""
 
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import awswrangler as wr
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import yaml
 
-from src.senpai_suggest.backend.logger import logger
+from src.senpai_suggest.backend.logger.logger import Logger
+
+logger: Logger = Logger()
 
 
-def convert_to_parquet(data: pd.DataFrame, output_file: str) -> pq.ParquetDataset:
+def convert_to_parquet(data: pd.DataFrame, output_file: str) -> pa.Table:
     """
     Convert a DataFrame to a Parquet file.
 
@@ -20,7 +24,7 @@ def convert_to_parquet(data: pd.DataFrame, output_file: str) -> pq.ParquetDatase
         output_file: Local path where Parquet file will be written.
 
     Returns:
-        ParquetDataset loaded from the written file.
+        PyArrow Table created from the written Parquet file.
 
     Raises:
         ValueError: If data is None or empty.
@@ -38,29 +42,27 @@ def convert_to_parquet(data: pd.DataFrame, output_file: str) -> pq.ParquetDatase
         pq.write_table(table, str(output_path))
         logger.info(f"Successfully wrote Parquet file: {output_file}")
 
-        return pq.ParquetDataset(str(output_path))
+        return table
     except Exception as e:
         logger.error(f"Error converting data to Parquet: {e}")
         raise RuntimeError(f"Failed to convert data to Parquet: {e}") from e
 
 
 def fetch_from_s3(
-    bucket_name: str,
-    key: str,
+    raw_data_path: str,
     output_file: str,
     columns: Optional[list[str]] = None,
     num_rows: Optional[int] = 1000,
-) -> pq.ParquetDataset:
+) -> pa.Table:
     """
     Fetch CSV data from S3, limit to 1000 rows, and convert to Parquet.
 
     Args:
-        bucket_name: S3 bucket name.
-        key: S3 object key (path to CSV file).
+        raw_data_path: S3 bucket name.
         output_file: Local path where Parquet file will be written.
 
     Returns:
-        ParquetDataset loaded from the converted Parquet file.
+        PyArrow Table loaded from the converted Parquet file.
 
     Raises:
         ValueError: If required parameters are missing.
@@ -68,25 +70,81 @@ def fetch_from_s3(
     """
     if not output_file:
         raise ValueError("Output file path must be provided.")
-    if not bucket_name:
-        raise ValueError("Bucket name must be provided.")
-    if not key:
-        raise ValueError("S3 key must be provided.")
+    if not raw_data_path:
+        raise ValueError("S3 raw data path must be provided.")
 
     try:
-        s3_path = f"s3://{bucket_name}/{key}"
-        logger.info(f"Reading CSV from S3: {s3_path}, limit=1000 rows")
+        logger.info(f"Reading CSV from S3: {raw_data_path}, limit=1000 rows")
 
         df = wr.s3.read_csv(
-            path=s3_path,
+            path=raw_data_path,
             use_threads=True,
             usecols=columns,
             nrows=num_rows,
         )
         logger.info(f"Successfully read {len(df)} rows from S3")
 
-        parquet_data = convert_to_parquet(df, output_file)
-        return parquet_data
+        parquet_table = convert_to_parquet(df, output_file)
+        return parquet_table
     except Exception as e:
         logger.error(f"Failed to fetch and convert CSV from S3: {e}")
         raise RuntimeError(f"Failed to fetch data from S3: {e}") from e
+
+
+def save_to_s3(
+    df: pa.Table,
+    # file_name: str,
+    bucket_name: str,
+) -> None:
+    """
+    Save the dataframe to an S3 bucket.
+
+    Args:
+        df: PyArrow Table to be saved.
+        bucket_name: S3 bucket name.
+        # file_name: The S3 object key (path where the file will be stored).
+
+    Raises:
+        ValueError: If required parameters are missing.
+        RuntimeError: If S3 upload fails.
+    """
+    if not bucket_name:
+        raise ValueError("Bucket name must be provided.")
+    if df is None:
+        raise ValueError("DataFrame must be provided.")
+
+    try:
+        s3_path = f"s3://{bucket_name}/{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet"
+        logger.info(f"Uploading dataframe to S3: {s3_path}")
+        wr.s3.to_parquet(df=df, path=s3_path)
+        logger.info(f"Successfully uploaded dataframe to S3: {s3_path}")
+    except Exception as e:
+        logger.error(f"Failed to upload file to S3: {e}")
+        raise RuntimeError(f"Failed to upload file to S3: {e}") from e
+
+
+# read yaml file for configuration
+def read_yaml(file_path: str) -> dict[str, Any]:
+    """
+    Read a YAML configuration file and return its contents as a dictionary.
+
+    Args:
+        file_path: Path to the YAML file.
+
+    Returns:
+        Dictionary containing the YAML configuration.
+
+    Raises:
+        ValueError: If the file path is not provided.
+        RuntimeError: If reading or parsing the YAML file fails.
+    """
+    if not file_path:
+        raise ValueError("File path must be provided.")
+
+    try:
+        with open(file_path, "r") as f:
+            config: dict[str, Any] = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        logger.error(f"Failed to read YAML file: {e}")
+        raise RuntimeError(f"Failed to read YAML file: {e}") from e
