@@ -1,10 +1,10 @@
-"""Unit tests for the ingestion column configuration."""
+"""Unit tests for the backend column configuration."""
 
 import dataclasses
 
 import pytest
 
-from src.senpai_suggest.backend.configs.ingestion_config import IngestionConfig, get_anime_columns
+from src.senpai_suggest.backend.configs.backend_config import IngestionConfig, get_anime_columns
 from src.senpai_suggest.backend.data_quality.schemas import ANIME_SCHEMA
 
 
