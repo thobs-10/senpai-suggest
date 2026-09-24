@@ -1,0 +1,41 @@
+# Version control / IDE
+.git
+.github
+.vscode
+.idea
+.DS_Store
+
+# Environments and secrets — never end up in an image layer
+.env
+.env.*
+!.env.example
+.venv
+venv
+
+# Python cruft
+__pycache__
+*.pyc
+*.pyc[co]
+*.egg-info
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Data, models, notebooks, logs — large and not needed to build the image
+data
+notebooks
+logs
+*.ipynb_checkpoints
+dist
+build
+
+# Docs, infra, tests — irrelevant to a runtime image, keeps build context small
+docs
+infrastructure
+tests
+*.md
+
+# Other services' Dockerfiles / compose — don't need to invalidate this build
+docker-compose.yaml
