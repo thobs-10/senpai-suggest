@@ -1,6 +1,10 @@
-"""Make the whole script to be a singlton logger class using loguru library, create a new folder in root level for logger is not exist and create a new
-log file with the name_date_timestamp.log format, the logger should have a method to get the logger instance and the log
-messages should be in the format of time - level - message"""
+"""Singleton logger built on loguru.
+
+Writes to ``<LOG_DIR>/system_<date>_<time>.log`` with the format
+``time | level | message``. The file sink is configured on first use (not at
+import time) and the file is only created when the first message is written,
+so importing modules or running tooling does not leave empty log files behind.
+"""
 
 import os
 from datetime import datetime
@@ -9,23 +13,23 @@ from pathlib import Path
 from dotenv import load_dotenv
 from loguru import logger
 
-load_dotenv()
+LOG_FORMAT = "{time:YYYY-MM-DD_HH:mm:ss} | {level} | {message}"
 
-LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / f"system_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-LOG_ROTATION = os.getenv("LOG_ROTATION", "10 MB")
-LOG_RETENTION = os.getenv("LOG_RETENTION", "30 days")
+def _configure_file_sink() -> None:
+    """Attach the rotating file sink to loguru, reading settings from the environment."""
+    load_dotenv()
+    log_dir = Path(os.getenv("LOG_DIR", "logs"))
+    log_file = log_dir / f"system_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
-logger.add(
-    LOG_FILE,
-    rotation=LOG_ROTATION,
-    retention=LOG_RETENTION,
-    level=LOG_LEVEL,
-    format="{time:YYYY-MM-DD_HH:mm:ss} | {level} | {message}",
-)
+    logger.add(
+        log_file,
+        rotation=os.getenv("LOG_ROTATION", "10 MB"),
+        retention=os.getenv("LOG_RETENTION", "30 days"),
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format=LOG_FORMAT,
+        delay=True,  # create the file (and LOG_DIR) on the first write, not now
+    )
 
 
 class Logger:
@@ -35,6 +39,7 @@ class Logger:
 
     def __new__(cls) -> "Logger":
         if cls._instance is None:
+            _configure_file_sink()
             cls._instance = super().__new__(cls)
         return cls._instance
 
