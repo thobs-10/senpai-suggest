@@ -39,7 +39,7 @@ def convert_to_parquet(data: pd.DataFrame, output_file: str) -> pa.Table:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         table = pa.Table.from_pandas(data)
-        pq.write_table(table, str(output_path))
+        pq.write_table(table, str(output_path))  # type: ignore[no-untyped-call, unused-ignore]  # no pyarrow stubs
         logger.info(f"Successfully wrote Parquet file: {output_file}")
 
         return table
@@ -55,11 +55,17 @@ def fetch_from_s3(
     num_rows: Optional[int] = 1000,
 ) -> pa.Table:
     """
-    Fetch CSV data from S3, limit to 1000 rows, and convert to Parquet.
+    Fetch CSV data from S3 and convert it to a local Parquet file.
+
+    Retries are deliberately not handled here: callers run inside Prefect
+    tasks, which own retry policy (``@task(retries=..., retry_delay_seconds=...)``).
+    Failures are raised as ``RuntimeError`` so the task can retry or fail.
 
     Args:
-        raw_data_path: S3 bucket name.
+        raw_data_path: S3 URI of the CSV file (e.g. ``s3://bucket/key.csv``).
         output_file: Local path where Parquet file will be written.
+        columns: Optional subset of columns to read; None reads all columns.
+        num_rows: Maximum number of rows to read; None reads the whole file.
 
     Returns:
         PyArrow Table loaded from the converted Parquet file.
@@ -74,7 +80,8 @@ def fetch_from_s3(
         raise ValueError("S3 raw data path must be provided.")
 
     try:
-        logger.info(f"Reading CSV from S3: {raw_data_path}, limit=1000 rows")
+        row_limit = num_rows if num_rows is not None else "all"
+        logger.info(f"Reading CSV from S3: {raw_data_path}, limit={row_limit} rows")
 
         df = wr.s3.read_csv(
             path=raw_data_path,
@@ -84,8 +91,7 @@ def fetch_from_s3(
         )
         logger.info(f"Successfully read {len(df)} rows from S3")
 
-        parquet_table = convert_to_parquet(df, output_file)
-        return parquet_table
+        return convert_to_parquet(df, output_file)
     except Exception as e:
         logger.error(f"Failed to fetch and convert CSV from S3: {e}")
         raise RuntimeError(f"Failed to fetch data from S3: {e}") from e
