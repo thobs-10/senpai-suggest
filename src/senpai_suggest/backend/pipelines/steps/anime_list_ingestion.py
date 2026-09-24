@@ -1,15 +1,15 @@
 """Ingest anime metadata from S3.
 
 Fetches the raw anime CSV, normalises it into the columns the rest of the
-pipeline relies on (see `ANIME_SCHEMA`), and validates the result.
+pipeline relies on (see `ANIME_SCHEMA`), and checks it in report mode.
 """
 
 from typing import Any
 
 import pyarrow as pa
 
-from src.senpai_suggest.backend.configs.ingestion_config import IngestionConfig, get_anime_columns
-from src.senpai_suggest.backend.data_quality import DataQualityValidator
+from src.senpai_suggest.backend.configs.backend_config import IngestionConfig, get_anime_columns
+from src.senpai_suggest.backend.data_quality import DataQualityValidator, ValidationResult
 from src.senpai_suggest.backend.logger.logger import Logger
 from src.senpai_suggest.backend.utils.main_utils import fetch_from_s3
 
@@ -42,7 +42,7 @@ def ingest_anime_list(
     raw_path: str,
     local_path: str,
     num_rows: int | None = None,
-) -> pa.Table:
+) -> ValidationResult:
     """Fetch anime metadata from S3, clean it, and validate it.
 
     Args:
@@ -51,24 +51,29 @@ def ingest_anime_list(
         num_rows: Maximum rows to read; None reads the whole file.
 
     Returns:
-        Validated anime metadata table with `ANIME_COLUMNS`.
+        Validation result: the coerced table plus any `ANIME_SCHEMA` failures,
+        for the raw data quality report.
 
     Raises:
         RuntimeError: If the S3 fetch fails.
-        DataQualityError: If the cleaned data breaks `ANIME_SCHEMA`.
+        DataQualityError: If a required column is missing (structural);
+            value-level failures are reported, not raised.
     """
     raw_table = fetch_from_s3(raw_path, local_path, num_rows=num_rows)
-    return validator.validate_anime(clean_anime_metadata(raw_table))
+    return validator.validate_anime(clean_anime_metadata(raw_table), raise_on_fail=False)
 
 
-def run_anime_list_ingestion(ingestion_config: dict[str, Any]) -> pa.Table:
+def run_anime_list_ingestion(ingestion_config: dict[str, Any]) -> ValidationResult:
     """Run the anime metadata ingestion using the `ingestion` section of config.yaml."""
     anime_cfg = ingestion_config["anime"]
     logger.info("Starting anime list ingestion.")
-    table = ingest_anime_list(
+    result = ingest_anime_list(
         raw_path=anime_cfg["raw_path"],
         local_path=anime_cfg["local_path"],
         num_rows=ingestion_config.get("num_rows"),
     )
-    logger.info(f"Anime list ingestion completed: {table.num_rows} rows.")
-    return table
+    logger.info(
+        f"Anime list ingestion completed: {result.table.num_rows} rows, "
+        f"{len(result.failure_cases)} quality failures."
+    )
+    return result
