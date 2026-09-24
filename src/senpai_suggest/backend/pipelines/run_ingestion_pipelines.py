@@ -6,11 +6,12 @@ steps are wired into a Prefect flow.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
-import pyarrow as pa
-
+from src.senpai_suggest.backend.data_quality import ValidationResult
+from src.senpai_suggest.backend.data_quality.report import write_run_summary, write_stage_reports
 from src.senpai_suggest.backend.logger.logger import Logger
 from src.senpai_suggest.backend.pipelines.steps.anime_list_ingestion import (
     run_anime_list_ingestion,
@@ -23,15 +24,15 @@ logger: Logger = Logger()
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "config.yaml"
 
-INGESTIONS: dict[str, Callable[[dict[str, Any]], pa.Table]] = {
+INGESTIONS: dict[str, Callable[[dict[str, Any]], ValidationResult]] = {
     "anime": run_anime_list_ingestion,
     "synopsis": run_synopsis_ingestion,
     "ratings": run_userlist_ingestion,
 }
 
 
-def run_all_ingestion_pipelines(ingestion_config: dict[str, Any]) -> dict[str, pa.Table]:
-    """Run every ingestion concurrently and return the tables by dataset name.
+def run_all_ingestion_pipelines(ingestion_config: dict[str, Any]) -> dict[str, ValidationResult]:
+    """Run every ingestion concurrently and return the validation results by dataset name.
 
     Raises:
         Exception: The first ingestion error, once all ingestions have finished.
@@ -46,9 +47,15 @@ def run_all_ingestion_pipelines(ingestion_config: dict[str, Any]) -> dict[str, p
 
 
 def main() -> None:
-    """Load config.yaml and run all ingestions."""
+    """Load config.yaml, run all ingestions, and write the raw data quality reports."""
     config = read_yaml(str(CONFIG_PATH))
-    run_all_ingestion_pipelines(config["ingestion"])
+    results = run_all_ingestion_pipelines(config["ingestion"])
+
+    run_id = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    report_dir = Path(config["data_quality"]["reports_dir"]) / run_id
+    summaries = write_stage_reports(results, "raw", report_dir)
+    write_run_summary(list(summaries.values()), report_dir)
+    logger.info(f"Raw data quality reports written to {report_dir}.")
 
 
 if __name__ == "__main__":
