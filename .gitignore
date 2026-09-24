@@ -48,7 +48,7 @@ htmlcov/
 # Project-specific
 data/raw/
 data/processed/
-models/
+# models/
 outputs/
 logs/
 *.mlflow
@@ -83,3 +83,4 @@ AGENTS.md
 skills.md
 .github/copilot-instructions.md
 .github/agents/*
+.claude/*

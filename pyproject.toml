@@ -3,20 +3,26 @@ requires = ["setuptools>=61.0.0", "setuptools_scm>=8.2.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mlops-project"
-dynamic = ["version"]
-description = "MLOps resources and utilities"
+name = "senpai-suggest"
+version = "0.1.0"
+# dynamic = ["version"]
+description = "Anime Recommendation System using MLOps principles"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12.8"
 license = { text = "MIT" }
-authors = [{ name = "Author", email = "author@example.com" }]
-keywords = ["mlops", "machine-learning", "devops"]
+authors = [{ name = "Author", email = "thobela.sixpence@gmail.com" }]
+keywords = [
+    "mlops",
+    "machine-learning",
+    "devops",
+    "recommendation-system",
+    "anime",
+    "python",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
@@ -26,24 +32,32 @@ dependencies = [
     "comet-ml>=3.58.3",
     "dvc>=3.67.1",
     "dvc-s3>=3.3.0",
-    "fastapi>=0.138.1",
+    "fastapi[standard]>=0.141.1",
     "ipykernel>=7.3.0",
     "joblib>=1.5.3",
     "loguru>=0.7.3",
     "matplotlib>=3.10.9",
     "numpy>=2.2.6",
     "pandas>=2.3.3",
+    "pandera>=0.24.0",
     "pyarrow>=17.0.0",
-    "pytest-cov>=7.1.0",
-    "pytest-instafail>=0.5.0",
-    "pytest-mock>=3.15.1",
-    "pytest-randomly>=4.1.0",
-    "pytest-xdist>=3.8.0",
+    # "pytest-cov>=7.1.0",
+    # "pytest-instafail>=0.5.0",
+    # "pytest-mock>=3.15.1",
+    # "pytest-randomly>=4.1.0",
+    # "pytest-xdist>=3.8.0",
     "pyyaml>=6.0.3",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
     "setuptools>=82.0.1",
     "torch>=2.10.0",
+    "python-dotenv>=1.2.2",
+    "pydantic-settings>=2.13.1",
+    "prefect>=3.8.4",
+    "types-pyyaml>=6.0.12.20260815",
+    "feast>=0.51.0",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "evidently>=0.7.15",
 ]
 
 [tool.setuptools.packages.find]
@@ -53,16 +67,28 @@ include = ["src*"]
 [tool.setuptools.package-dir]
 "" = "."
 
-[project.optional-dependencies]
+# Linux wheels of torch bundle the CUDA runtime, which adds gigabytes to a
+# CPU-only container image. macOS keeps the default PyPI wheels.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[dependency-groups]
 dev = [
-    "ruff==0.4.4",
-    "setuptools_scm>=8.2.0",
-    "pyrefly>=1.1.0",
-    "pdoc>=14.0.0",
+    "pre-commit>=4.6.1",
+    "pytest-cov>=7.1.0",
+    "pytest-instafail>=0.5.0",
+    "pytest-mock>=3.15.1",
+    "pytest-randomly>=4.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.14.0",
     "commitizen>=3.0.0",
     "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pre-commit>=3.5.0",
+
 ]
 
 [tool.setuptools_scm]
@@ -70,30 +96,59 @@ write_to = "_version.py"
 version_scheme = "release-branch-semver"
 fallback_version = "0.1.0"
 
+
+# ---------------------------------------------------
+# Ruff (linting + formatting)
+# ---------------------------------------------------
 [tool.ruff]
+target-version = "py312"
 line-length = 100
-lint.select = ["E", "F", "W", "I", "C", "B"]
-lint.ignore = ["E501"]
 
-[tool.ruff.lint.isort]
-known-first-party = ["src"]
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "C90", "I"] # I = isort import sorting
+ignore = ["E501"]
 
-# [project.optional-dependencies]
-# dev = ["pytest>=7.0", "ruff>=0.1.0", "mypy>=1.0"]
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
-# [tool.uv]
-# python-version = "3.10"
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"] # example: allow asserts in tests
 
+[tool.ruff.format]
+quote-style = "double"
 
-[tool.pyrefly]
-python_version = "3.10"
-type_checking_mode = "standard"
+# ---------------------------------------------------
+# pytest
+# ---------------------------------------------------
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra -q --cov=src --cov-report=term-missing"
+markers = ["slow: marks tests as slow", "integration: marks integration tests"]
 
-[tool.commitizen]
-name = "cz_conventional_commits"
-version = "0.1.0"
-version_files = [
-    "src/senpai_suggest/__init__.py",
-]
-tag_format = "v$version"
-update_changelog_on_bump = true
+# ---------------------------------------------------
+# coverage.py (used by pytest-cov)
+# ---------------------------------------------------
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
+fail_under = 80
+
+# ---------------------------------------------------
+# mypy (type checking)
+# ---------------------------------------------------
+[tool.mypy]
+explicit_package_bases = true
+namespace_packages = true
+strict = true
+ignore_missing_imports = true
+disable_error_code = "misc"
+
+# ---------------------------------------------------
+# bandit (security linting)
+[tool.bandit]
+exclude_dirs = ["tests/", "docs", "build", "dist", "venv", ".venv"]
+skips = ["B101"]

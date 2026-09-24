@@ -1,0 +1,57 @@
+# Project configuration template
+# Environment-specific values loaded from environment variables
+
+# Backend configuration
+backend:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false # Set to true in development
+
+# Frontend configuration
+frontend:
+  host: "0.0.0.0"
+  port: 8501
+
+# AWS S3 configuration
+aws:
+  s3_bucket: ${S3_BUCKET}
+  s3_region: ${AWS_REGION}
+  # Use IAM instance profiles in production instead of hardcoded credentials
+
+# Data ingestion: raw CSVs on S3 -> validated tables, cached locally as Parquet.
+# local_path lives under data/raw/ (gitignored).
+ingestion:
+  num_rows: 1000 # sample size while developing; null reads full files
+  anime:
+    raw_path: s3://senpai-suggest-datasets/anime/anime.csv
+    local_path: data/raw/anime.parquet
+  ratings:
+    raw_path: s3://senpai-suggest-datasets/anime/animelist.csv
+    local_path: data/raw/ratings.parquet
+    columns: [user_id, anime_id, rating]
+  synopsis:
+    raw_path: s3://senpai-suggest-datasets/anime/anime_with_synopsis.csv
+    local_path: data/raw/synopsis.parquet
+    columns: [MAL_ID, Name, Genres, sypnopsis]
+
+# Model configuration
+model:
+  name: "als_recommender"
+  version: "v1" # Update with git hash on deployment
+  cache_dir: "/tmp/models"
+
+# Prefect configuration
+prefect:
+  api_url: "http://prefect:4200/api"
+  environment: "development" # Override with "production" in prod
+
+# Logging configuration
+logging:
+  level: "INFO" # Set to DEBUG for development
+  format: "json" # Structured JSON logging
+
+# Monitoring configuration
+monitoring:
+  prometheus_enabled: true
+  prometheus_port: 9090
+  cloudwatch_logs: true
