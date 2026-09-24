@@ -18,7 +18,7 @@ def test_run_userlist_ingestion_fetches_with_config_and_validates(
         userlist_ingestion, "fetch_from_s3", return_value=sample_ratings_table
     )
 
-    table = userlist_ingestion.run_userlist_ingestion(ingestion_config)
+    result = userlist_ingestion.run_userlist_ingestion(ingestion_config)
 
     fetch.assert_called_once_with(
         "s3://bucket/animelist.csv",
@@ -26,7 +26,8 @@ def test_run_userlist_ingestion_fetches_with_config_and_validates(
         columns=["user_id", "anime_id", "rating"],
         num_rows=100,
     )
-    assert table.to_pydict() == sample_ratings_table.to_pydict()
+    assert result.passed
+    assert result.table.to_pydict() == sample_ratings_table.to_pydict()
 
 
 def test_run_userlist_ingestion_defaults_optional_config(
@@ -46,14 +47,25 @@ def test_run_userlist_ingestion_defaults_optional_config(
 @pytest.mark.parametrize(
     "bad_table_fixture", ["ratings_table_with_duplicates", "ratings_table_with_nulls"]
 )
-def test_ingest_user_ratings_rejects_bad_data(
+def test_ingest_user_ratings_reports_bad_data_without_raising(
     mocker: MockerFixture, request: pytest.FixtureRequest, bad_table_fixture: str
 ) -> None:
-    """It should fail fast on duplicate (user, anime) pairs or nulls."""
+    """It should return duplicate pairs or nulls as failures, keeping every row."""
+    bad_table = request.getfixturevalue(bad_table_fixture)
+    mocker.patch.object(userlist_ingestion, "fetch_from_s3", return_value=bad_table)
+
+    result = userlist_ingestion.ingest_user_ratings("s3://bucket/x.csv", "x.parquet")
+
+    assert not result.passed
+    assert result.table.num_rows == bad_table.num_rows
+
+
+def test_ingest_user_ratings_raises_on_missing_column(
+    mocker: MockerFixture, sample_ratings_table: pa.Table
+) -> None:
+    """It should still fail fast when the source lacks a required column."""
     mocker.patch.object(
-        userlist_ingestion,
-        "fetch_from_s3",
-        return_value=request.getfixturevalue(bad_table_fixture),
+        userlist_ingestion, "fetch_from_s3", return_value=sample_ratings_table.drop(["rating"])
     )
 
     with pytest.raises(DataQualityError, match="Ratings data failed validation"):
