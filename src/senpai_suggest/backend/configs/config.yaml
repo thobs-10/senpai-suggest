@@ -18,10 +18,21 @@ aws:
   s3_region: ${AWS_REGION}
   # Use IAM instance profiles in production instead of hardcoded credentials
 
-# data ingestion
+# Data ingestion: raw CSVs on S3 -> validated tables, cached locally as Parquet.
+# local_path lives under data/raw/ (gitignored).
 ingestion:
-  raw_ratings_path: s3://your-bucket-name/path/to/ratings.csv
-  output_file_path: "s3://your-bucket-name/path/to/user_ratings.parquet"
+  num_rows: 1000 # sample size while developing; null reads full files
+  anime:
+    raw_path: s3://senpai-suggest-datasets/anime/anime.csv
+    local_path: data/raw/anime.parquet
+  ratings:
+    raw_path: s3://senpai-suggest-datasets/anime/animelist.csv
+    local_path: data/raw/ratings.parquet
+    columns: [user_id, anime_id, rating]
+  synopsis:
+    raw_path: s3://senpai-suggest-datasets/anime/anime_with_synopsis.csv
+    local_path: data/raw/synopsis.parquet
+    columns: [MAL_ID, Name, Genres, sypnopsis]
 
 # Model configuration
 model:
