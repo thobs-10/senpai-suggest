@@ -1,0 +1,5 @@
+[core]
+    remote = storage
+['remote "storage"']
+    url = s3://${S3_BUCKET_NAME}/dvc-store
+    region = ${AWS_DEFAULT_REGION}
