@@ -34,6 +34,10 @@ ingestion:
     local_path: data/raw/synopsis.parquet
     columns: [MAL_ID, Name, Genres, sypnopsis]
 
+# Data quality reports: one folder per run under reports_dir (gitignored).
+data_quality:
+  reports_dir: data/reports
+
 # Model configuration
 model:
   name: "als_recommender"

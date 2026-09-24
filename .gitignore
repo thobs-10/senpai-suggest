@@ -48,6 +48,7 @@ htmlcov/
 # Project-specific
 data/raw/
 data/processed/
+data/reports/
 # models/
 outputs/
 logs/
