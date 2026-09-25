@@ -28,6 +28,7 @@ from src.senpai_suggest.backend.configs.backend_config import (
     get_preprocessing_key_columns,
 )
 from src.senpai_suggest.backend.logger.logger import Logger
+from src.senpai_suggest.backend.utils.table_utils import replace_column, require_columns
 
 logger: Logger = Logger()
 
@@ -57,9 +58,9 @@ def drop_invalid_rows(
     Raises:
         ValueError: If a key column or `rating` is missing.
     """
-    _require_columns(table, *KEY_COLUMNS, "rating")
+    require_columns(table, *KEY_COLUMNS, "rating")
     rating = pc.fill_null(table["rating"], unrated_value)
-    table = _replace_column(table, "rating", rating)
+    table = replace_column(table, "rating", rating)
 
     in_range = pc.and_(pc.greater_equal(rating, min_rating), pc.less_equal(rating, max_rating))
     valid_rating = pc.or_(pc.equal(rating, unrated_value), in_range)
@@ -84,7 +85,7 @@ def dedupe_interactions(table: pa.Table) -> pa.Table:
     Raises:
         ValueError: If a key column or `rating` is missing.
     """
-    _require_columns(table, *KEY_COLUMNS, "rating")
+    require_columns(table, *KEY_COLUMNS, "rating")
     deduped = table.group_by(list(KEY_COLUMNS)).aggregate([("rating", "max")])
     deduped = deduped.rename_columns(
         ["rating" if c == "rating_max" else c for c in deduped.column_names]
@@ -103,10 +104,10 @@ def flag_unrated(table: pa.Table, unrated_value: int) -> pa.Table:
     Raises:
         ValueError: If `rating` is missing.
     """
-    _require_columns(table, "rating")
+    require_columns(table, "rating")
     is_rated = pc.not_equal(table["rating"], unrated_value)
     rating = pc.if_else(is_rated, table["rating"], pa.scalar(None, table["rating"].type))
-    return _replace_column(table, "rating", rating).append_column("is_rated", is_rated)
+    return replace_column(table, "rating", rating).append_column("is_rated", is_rated)
 
 
 def filter_sparse(
@@ -132,7 +133,7 @@ def filter_sparse(
     Raises:
         ValueError: If a key column is missing.
     """
-    _require_columns(table, *KEY_COLUMNS)
+    require_columns(table, *KEY_COLUMNS)
     for _ in range(max_rounds):
         rows_before = table.num_rows
         table = _keep_frequent(table, "anime_id", min_anime_interactions)
@@ -162,7 +163,7 @@ def add_confidence(
     Raises:
         ValueError: If `rating` is missing.
     """
-    _require_columns(table, "rating")
+    require_columns(table, "rating")
     rating = table["rating"].cast(pa.float64())
     confidence = pc.fill_null(pc.add(1.0, pc.multiply(rating, alpha)), unrated_confidence)
     return table.append_column("confidence", confidence)
@@ -186,13 +187,13 @@ def normalize_ratings(
     Raises:
         ValueError: If `rating` is missing or `min_rating == max_rating`.
     """
-    _require_columns(table, "rating")
+    require_columns(table, "rating")
     scale = max_rating - min_rating
     if scale == 0:
         raise ValueError("max_rating and min_rating cannot be the same.")
 
     ratings = table["rating"].cast(pa.float64())
-    return _replace_column(table, "rating", pc.divide(pc.subtract(ratings, min_rating), scale))
+    return replace_column(table, "rating", pc.divide(pc.subtract(ratings, min_rating), scale))
 
 
 def shuffle_rows(table: pa.Table, seed: int) -> pa.Table:
@@ -218,7 +219,7 @@ def split_per_user(
     Raises:
         ValueError: If `user_id` is missing or `test_fraction` is not in [0, 1).
     """
-    _require_columns(table, "user_id")
+    require_columns(table, "user_id")
     if not 0 <= test_fraction < 1:
         raise ValueError("test_fraction must be in [0, 1).")
 
@@ -244,7 +245,7 @@ def encode_ids(
     Raises:
         ValueError: If `source_column` is missing.
     """
-    _require_columns(table, source_column)
+    require_columns(table, source_column)
     raw_ids = pc.unique(table[source_column]).to_pylist()
     encoder = {raw_id: i for i, raw_id in enumerate(raw_ids)}
     decoder = dict(enumerate(raw_ids))
@@ -262,7 +263,7 @@ def apply_encoding(
     Raises:
         ValueError: If `source_column` is missing.
     """
-    _require_columns(table, source_column)
+    require_columns(table, source_column)
     # Dict order matches the codes (encoder values are 0..n-1 in insertion order).
     value_set = pa.array(list(encoder), type=table[source_column].type)
     codes = pc.index_in(table[source_column], value_set=value_set).cast(pa.int32())
@@ -327,13 +328,3 @@ def _holdout_mask(
     is_test = np.empty(len(user_ids), dtype=bool)
     is_test[order] = is_test_sorted
     return is_test
-
-
-def _require_columns(table: pa.Table, *columns: str) -> None:
-    for column in columns:
-        if column not in table.column_names:
-            raise ValueError(f"Table must contain '{column}' column.")
-
-
-def _replace_column(table: pa.Table, name: str, values: pa.ChunkedArray | pa.Array) -> pa.Table:
-    return table.set_column(table.column_names.index(name), name, values)
