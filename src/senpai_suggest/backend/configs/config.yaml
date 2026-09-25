@@ -21,6 +21,7 @@ aws:
 # Data ingestion: raw CSVs on S3 -> validated tables, cached locally as Parquet.
 # local_path lives under data/raw/ (gitignored).
 ingestion:
+  output_dir: data/ingested # validated tables, one folder per run (gitignored)
   num_rows: 1000 # sample size while developing; null reads full files
   anime:
     raw_path: s3://senpai-suggest-datasets/anime/anime.csv
@@ -33,6 +34,20 @@ ingestion:
     raw_path: s3://senpai-suggest-datasets/anime/anime_with_synopsis.csv
     local_path: data/raw/synopsis.parquet
     columns: [MAL_ID, Name, Genres, sypnopsis]
+
+# Preprocessing: fixes that turn validated raw data into model-ready tables.
+preprocessing:
+  output_dir: data/processed # one folder per run (gitignored)
+  ratings:
+    unrated_value: 0 # MAL: on the list but never scored -> implicit interaction
+    min_rating: 1
+    max_rating: 10
+    min_user_interactions: 20 # counts rated and unrated rows
+    min_anime_interactions: 10
+    test_fraction: 0.2 # per-user holdout
+    confidence_alpha: 0.4 # ALS confidence = 1 + alpha * rating
+    unrated_confidence: 1.0
+    seed: 42
 
 # Data quality reports: one folder per run under reports_dir (gitignored).
 data_quality:
