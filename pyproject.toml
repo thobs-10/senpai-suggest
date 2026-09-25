@@ -147,6 +147,12 @@ strict = true
 ignore_missing_imports = true
 disable_error_code = "misc"
 
+# pyarrow.compute functions are generated at runtime and pyarrow.parquet is
+# untyped, so mypy cannot check calls into them.
+[[tool.mypy.overrides]]
+module = ["pyarrow.compute", "pyarrow.parquet"]
+follow_imports = "skip"
+
 # ---------------------------------------------------
 # bandit (security linting)
 [tool.bandit]
