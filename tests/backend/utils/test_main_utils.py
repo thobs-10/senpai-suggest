@@ -1,5 +1,6 @@
 """Unit tests for the shared backend utilities; S3 calls are mocked."""
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -138,3 +139,25 @@ def test_read_yaml_wraps_missing_file(tmp_path: Path) -> None:
     """It should wrap file errors in RuntimeError."""
     with pytest.raises(RuntimeError, match="Failed to read YAML file"):
         main_utils.read_yaml(str(tmp_path / "missing.yaml"))
+
+
+def test_new_run_id_is_a_sortable_utc_timestamp() -> None:
+    """It should return YYYYMMDD_HHMMSS, which sorts chronologically."""
+    run_id = main_utils.new_run_id()
+
+    assert re.fullmatch(r"\d{8}_\d{6}", run_id)
+
+
+def test_latest_run_id_returns_newest_folder(tmp_path: Path) -> None:
+    """It should pick the last run folder in sorted order and ignore files."""
+    for run_id in ("20260101_000000", "20260925_120000", "20260501_000000"):
+        (tmp_path / run_id).mkdir()
+    (tmp_path / "summary.json").write_text("{}")
+
+    assert main_utils.latest_run_id(tmp_path) == "20260925_120000"
+
+
+def test_latest_run_id_raises_when_there_are_no_runs(tmp_path: Path) -> None:
+    """It should explain that no runs exist yet."""
+    with pytest.raises(FileNotFoundError, match="No runs found"):
+        main_utils.latest_run_id(tmp_path / "missing")
