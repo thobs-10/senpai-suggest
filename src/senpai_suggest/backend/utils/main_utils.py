@@ -1,6 +1,6 @@
 """Utility script that has helper functions required by more than one function."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -154,3 +154,22 @@ def read_yaml(file_path: str) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to read YAML file: {e}")
         raise RuntimeError(f"Failed to read YAML file: {e}") from e
+
+
+def new_run_id() -> str:
+    """Return a UTC timestamp run ID (e.g. ``20260925_142501``) for naming run folders."""
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+
+
+def latest_run_id(runs_dir: Path) -> str:
+    """Return the newest run folder name under `runs_dir`.
+
+    Run IDs from `new_run_id` are timestamps, so the newest sorts last.
+
+    Raises:
+        FileNotFoundError: If `runs_dir` has no run folders.
+    """
+    run_ids = sorted(path.name for path in runs_dir.glob("*") if path.is_dir())
+    if not run_ids:
+        raise FileNotFoundError(f"No runs found in '{runs_dir}'.")
+    return run_ids[-1]
