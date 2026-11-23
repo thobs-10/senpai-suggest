@@ -1,9 +1,18 @@
-"""Pytest fixtures for pipeline step tests."""
+"""Pytest fixtures shared by pipeline step and flow tests."""
 
+from collections.abc import Iterator
 from typing import Any
 
 import pyarrow as pa
 import pytest
+from prefect.testing.utilities import prefect_test_harness
+
+
+@pytest.fixture(scope="session")
+def prefect_backend() -> Iterator[None]:
+    """Run flows against one temporary local Prefect server for the whole session."""
+    with prefect_test_harness():
+        yield
 
 
 @pytest.fixture

@@ -47,6 +47,7 @@ htmlcov/
 
 # Project-specific
 data/raw/
+data/ingested/
 data/processed/
 data/reports/
 # models/
@@ -85,3 +86,6 @@ skills.md
 .github/copilot-instructions.md
 .github/agents/*
 .claude/*
+# Local development log: phase/chunk docs (see docs/dev/README.md)
+docs/dev/
+docs/PROGRESS.md

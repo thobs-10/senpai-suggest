@@ -1,42 +1,57 @@
-"""Main Prefect flows orchestrating the data pipeline."""
+"""Parent Prefect flow: the single entry point for the whole data pipeline.
+
+Runs each stage as a subflow, in order, with one shared run ID so every
+output of a run lands in folders with the same name:
+
+    ingestion-pipeline      -> data/ingested/{run_id}/, data/reports/{run_id}/
+    preprocessing-pipeline  -> data/processed/{run_id}/
+
+A failed stage stops the run; later stages are not started. Each stage can
+still be run on its own (see its module) to redo just that part.
+Feature engineering and training join here as later subflows.
+
+Usage:
+    uv run python -m src.senpai_suggest.backend.pipelines.main
+"""
+
+from pathlib import Path
 
 from prefect import flow
 
-from .steps.data_ingestion import (
-    ingest_anime_data,
-    ingest_user_profiles,
-    ingest_user_ratings,
+from src.senpai_suggest.backend.configs.backend_config import CONFIG_PATH
+from src.senpai_suggest.backend.logger.logger import Logger
+from src.senpai_suggest.backend.pipelines.run_ingestion_pipeline import run_ingestion_pipeline
+from src.senpai_suggest.backend.pipelines.run_preprocessing_pipeline import (
+    run_preprocessing_pipeline,
 )
+from src.senpai_suggest.backend.utils.main_utils import new_run_id
+
+logger: Logger = Logger()
 
 
-@flow(name="anime-data-pipeline")
-def main_pipeline(
-    anime_s3_path: str = "s3://anime-data/anime.csv",
-    ratings_s3_path: str = "s3://anime-data/ratings.csv",
-    profiles_s3_path: str = "s3://anime-data/profiles.csv",
-) -> dict:
-    """
-    Main data pipeline orchestrating data ingestion and preprocessing.
+@flow(name="senpai-suggest-pipeline")
+def run_pipeline(
+    config_path: str = str(CONFIG_PATH),
+    run_id: str | None = None,
+) -> dict[str, dict[str, Path]]:
+    """Run ingestion then preprocessing under one run ID.
 
     Args:
-        anime_s3_path: S3 path to anime metadata CSV.
-        ratings_s3_path: S3 path to user ratings CSV.
-        profiles_s3_path: S3 path to user profiles CSV.
+        config_path: Path to config.yaml, passed to every stage.
+        run_id: Shared output folder name; a new UTC timestamp when omitted.
 
     Returns:
-        Dictionary with ingested and processed data.
+        Each stage's written files, keyed by stage name.
     """
-    # TODO: Phase 3 - Implement parallel data ingestion
-    anime_data = ingest_anime_data(anime_s3_path)
-    ratings_data = ingest_user_ratings(ratings_s3_path)
-    profiles_data = ingest_user_profiles(profiles_s3_path)
+    run_id = run_id or new_run_id()
+    logger.info(f"Starting pipeline run {run_id}.")
 
-    return {
-        "anime": anime_data,
-        "ratings": ratings_data,
-        "profiles": profiles_data,
-    }
+    ingested: dict[str, Path] = run_ingestion_pipeline(config_path=config_path, run_id=run_id)
+    processed: dict[str, Path] = run_preprocessing_pipeline(config_path=config_path, run_id=run_id)
+
+    logger.info(f"Pipeline run {run_id} completed.")
+    return {"ingestion": ingested, "preprocessing": processed}
 
 
 if __name__ == "__main__":
-    main_pipeline()
+    run_pipeline()
