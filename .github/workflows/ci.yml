@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded PR runs are cancelled; every push to dev keeps its own pass/fail result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, type check, security scan, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Every uv command fails instead of re-locking if uv.lock is out of date with pyproject.toml.
+      UV_LOCKED: "1"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # No python-version input: uv reads .python-version and installs that interpreter itself.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies (locked)
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Mypy type check
+        run: uv run mypy src
+
+      # Bandit version pinned to match pre-commit; scans src/ only because pyproject excludes tests/.
+      # Run via uvx so it stays out of the project's dependencies.
+      - name: Bandit security scan
+        run: uvx --from 'bandit[toml]==1.7.8' bandit -c pyproject.toml -r src
+
+      - name: Pytest with coverage
+        run: uv run pytest
