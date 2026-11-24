@@ -4,7 +4,7 @@ import streamlit as st
 from client import RecommenderClient
 
 
-def main():
+def main() -> None:
     """Run the Streamlit application."""
     st.set_page_config(page_title="Senpai Suggest", layout="wide")
     st.title("🎬 Senpai Suggest")

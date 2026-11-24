@@ -40,7 +40,9 @@ class RecommenderClient:
         try:
             response = requests.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            # Unchecked: .json() is typed Any; runtime shape validation comes in chunk 0.3.
+            payload: Dict[str, Any] = response.json()
+            return payload
         except requests.ConnectionError as e:
             raise requests.RequestException(
                 f"Failed to connect to backend at {self.base_url}"

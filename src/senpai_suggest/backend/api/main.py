@@ -1,6 +1,7 @@
 """Main FastAPI application for anime recommendations."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Manage FastAPI application lifespan.
 
@@ -43,7 +44,7 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint for ALB monitoring."""
     return {"status": "healthy", "service": "senpai-suggest-api"}
 
@@ -53,9 +54,3 @@ async def health_check():
 # async def get_recommendations(user_id: str, limit: int = 10):
 #     """Get anime recommendations for a user."""
 #     pass
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
